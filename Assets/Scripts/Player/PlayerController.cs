@@ -11,10 +11,14 @@ public class PlayerController : NetworkBehaviour
 
     private Vector2 move;
     private Vector3 playerMovement;
-    private Vector3 velocity;
 
     private Vector2 look;
     private float xRotation;
+
+    private InputAction MOVE;
+    private InputAction ATTACK;
+    private InputAction LOOK;
+    private InputAction JUMP;
 
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Camera playerCamera;
@@ -27,6 +31,7 @@ public class PlayerController : NetworkBehaviour
 
     public BulletTrail bulletTrail;
 
+    private InputSystem_Actions inputActions;
 
     public override void OnNetworkSpawn()
     {
@@ -43,14 +48,29 @@ public class PlayerController : NetworkBehaviour
         if (!IsOwner)
         {
             playerCamera.enabled = false;
+            return;
         }
+
+        AssignInputs();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+
+        if (!IsOwner) return;
+
+        MOVE.Disable();
+        LOOK.Disable();
+        ATTACK.Disable();
+        JUMP.Disable();
     }
 
     void Update()
     {
         if (!IsOwner)
         {
-            Debug.Log("I am not the owner :(");
+            Debug.Log("I am not the owner of: " + this.gameObject.name);
             return;
         }
 
@@ -69,9 +89,37 @@ public class PlayerController : NetworkBehaviour
         PerformLook();
     }
 
+    private void AssignInputs()
+    {
+        inputActions = new InputSystem_Actions();
+
+        MOVE = inputActions.Player.Move;
+        MOVE.Enable();
+        MOVE.performed += OnMove;
+        MOVE.canceled += OnMoveCanceled;
+
+        LOOK = inputActions.Player.Look;
+        LOOK.Enable();
+        LOOK.performed += OnLook;
+        LOOK.canceled += OnLookCanceled;
+
+        ATTACK = inputActions.Player.Attack;
+        ATTACK.Enable();
+        ATTACK.performed += OnAttack;
+
+        JUMP = inputActions.Player.Jump;
+        JUMP.Enable();
+        JUMP.performed += OnJump;
+    }
+
     public void OnMove(InputAction.CallbackContext ctx)
     {
         move = ctx.ReadValue<Vector2>();
+    }
+
+    public void OnMoveCanceled(InputAction.CallbackContext ctx)
+    {
+        move = new Vector2(0, 0);
     }
 
     public void OnLook(InputAction.CallbackContext ctx)
@@ -79,12 +127,14 @@ public class PlayerController : NetworkBehaviour
         look = ctx.ReadValue<Vector2>();
     }
 
+    public void OnLookCanceled(InputAction.CallbackContext ctx)
+    {
+        look = new Vector2(0, 0);
+    }
+
     public void OnJump(InputAction.CallbackContext ctx)
     {
-        if (ctx.performed)
-        {
-            PerformJump();
-        }
+        Respawn();
     }
 
     public void OnAttack(InputAction.CallbackContext ctx)
